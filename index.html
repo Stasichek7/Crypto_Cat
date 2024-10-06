@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Tap Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #1a1a1a;
+      color: #00ff00;
+      overflow: hidden;
+    }
+
+    #gameContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+    }
+
+    #tapButton {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      font-size: 24px;
+      font-weight: bold;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 20px #00ff00;
+      margin-bottom: 20px;
+    }
+
+    #tapButton:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px #00ff00;
+    }
+
+    #tapButton:active {
+      transform: scale(0.95);
+    }
+
+    #username,
+    #score {
+      font-size: 18px;
+      margin: 10px 0;
+      text-shadow: 0 0 5px #00ff00;
+    }
+
+    #leaderboardView {
+      background-color: #2a2a2a;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      display: none;
+      z-index: 1;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #00ff00;
+      padding: 5px 0;
+    }
+
+    #menu {
+      margin-top: 20px;
+      z-index: 1;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin: 0 10px;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .dollar {
+      position: fixed;
+      font-size: 50px;
+      color: #00ff00;
+      user-select: none;
+      z-index: 0;
+    }
+
+    #antiTapButton {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      font-size: 24px;
+      font-weight: bold;
+      background-color: #FF4136;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 0 20px #FF4136;
+      margin-bottom: 20px;
+    }
+
+    #antiTapButton:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px #FF4136;
+    }
+
+    #antiTapButton:active {
+      transform: scale(0.95);
+    }
+
+    #referralCode {
+      font-size: 18px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="gameContainer">
+    <button id="tapButton" type="button">MINE</button>
+    <button id="antiTapButton" type="button">ANTI-MINE</button>
+    <div id="username"></div>
+    <div id="score">Баланс: 0 CRYPT</div>
+    <div id="referralCode"></div>
+  </div>
+  <div id="leaderboardView">
+    <h2>Таблица лидеров</h2>
+    <div id="leaderboard"></div>
+  </div>
+  <div id="menu">
+    <button id="gameButton">Майнинг</button>
+    <button id="leaderboardButton">Лидерборд</button>
+  </div>
+
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    let username = urlParams.get('username');
+    if (username) {
+      username = username.replace(/^"(.*)"$/, '$1');
+    } else {
+      username = 'Miner1';
+    }
+
+    document.getElementById('username').textContent = `Майнер: ${username}`;
+
+    let score = 0;
+    const gameContainer = document.getElementById('gameContainer');
+    const leaderboardView = document.getElementById('leaderboardView');
+    const scoreElement = document.getElementById('score');
+    const tapButton = document.getElementById('tapButton');
+    const leaderboardElement = document.getElementById('leaderboard');
+    const gameButton = document.getElementById('gameButton');
+    const leaderboardButton = document.getElementById('leaderboardButton');
+    const referralCodeElement = document.getElementById('referralCode');
+
+    async function fetchScore() {
+      try {
+        const response = await fetch(`http://localhost:8000/score/${username}`);
+        const data = await response.json();
+        score = data.score;
+        scoreElement.textContent = `Баланс: ${score} CRYPT`;
+      } catch (error) {
+        console.error('Error fetching score:', error);
+      }
+    }
+
+    function createDollar() {
+  const dollar = document.createElement('div');
+  dollar.innerText = '$';
+  dollar.classList.add('dollar');
+
+  const dollarWidth = 20; 
+  const maxLeft = window.innerWidth - dollarWidth;
+  dollar.style.left = `${Math.random() * maxLeft}px`;
+  dollar.style.top = '-20px';
+  document.body.appendChild(dollar);
+
+  const animation = dollar.animate([
+    { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
+    { transform: `translateY(${window.innerHeight}px) rotate(${Math.random() * 360}deg)`, opacity: 0 }
+  ], {
+    duration: 1500,
+    easing: 'ease-in-out',
+  });
+
+  animation.onfinish = () => dollar.remove();
+}
+
+
+    async function handleTap() {
+      try {
+        const response = await fetch('http://localhost:8000/tap1', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+        const data = await response.json();
+        score = parseInt(data.message.split('Total: ')[1]);
+        scoreElement.textContent = `Баланс: ${score} CRYPT`;
+
+        tapButton.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          tapButton.style.transform = 'scale(1)';
+        }, 100);
+
+        for (let i = 0; i < 10; i++) {
+          setTimeout(createDollar, i * 50);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    async function fetchLeaderboard() {
+      try {
+        const response = await fetch('http://localhost:8000/leaderboard');
+        const data = await response.json();
+        leaderboardElement.innerHTML = data.map((user, index) => `
+                    <div class="leaderboard-item">
+                        <span>#${index + 1} ${user.username}</span>
+                        <span>${user.score} CRYPT</span>
+                    </div>
+                `).join('');
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    function showGame() {
+      gameContainer.style.display = 'flex';
+      leaderboardView.style.display = 'none';
+    }
+
+    function showLeaderboard() {
+      gameContainer.style.display = 'none';
+      leaderboardView.style.display = 'block';
+      fetchLeaderboard();
+    }
+
+    function generateReferralCode() {
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      const code = Array(6).fill().map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const referralCodeElement = document.getElementById('referralCode');
+      return code;
+    }
+
+    function getReferralCode() {
+      let savedCode = localStorage.getItem('referralCode');
+      if (!savedCode) {
+        savedCode = generateReferralCode();  
+        localStorage.setItem('referralCode', savedCode);  
+      }
+      return savedCode;
+    }
+
+    function displayReferralCode() {
+      const referralCode = getReferralCode();
+      const referralCodeElement = document.getElementById('referralCode');
+      referralCodeElement.textContent = `Реферальний код: ${referralCode}`;
+    }
+
+    tapButton.addEventListener('click', handleTap);
+    gameButton.addEventListener('click', showGame);
+    leaderboardButton.addEventListener('click', showLeaderboard);
+
+    fetchScore();
+    fetchLeaderboard();
+    generateReferralCode();
+
+    const antiTapButton = document.getElementById('antiTapButton');
+
+    async function handleAntiTap() {
+      try {
+        const response = await fetch('http://localhost:8000/tap2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        });
+        const data = await response.json();
+        score = parseInt(data.message.split('Total: ')[1]);
+        scoreElement.textContent = `Баланс: ${score} CRYPT`;
+
+        antiTapButton.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          antiTapButton.style.transform = 'scale(1)';
+        }, 100);
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    antiTapButton.addEventListener('click', handleAntiTap);
+    window.onload = displayReferralCode;
+  </script>
+</body>
+
+</html>
